@@ -31,6 +31,8 @@ class StorageConnectionSettings:
 
     bucket_name: str
 
+    public_url_base: str | None
+
 
 class ViewTagType(Enum):
     """Tag type for an view settings."""
@@ -83,3 +85,11 @@ class ContentViewResult(ViewResult):
     """View result with contents."""
 
     results: list[Content]
+
+
+class ImageType(Enum):
+    """Image type."""
+
+    MEDIA = 0
+    THUMBNAIL = 1
+    AVATAR = 2

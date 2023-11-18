@@ -5,13 +5,17 @@ from core.models import (
     ViewOrderType,
     ViewSettings,
     Content,
-    ContentViewResult
+    ContentViewResult,
+    ImageType
 )
+
+from .media_processing import MediaProcessingManager
 
 import aiomysql
 import aiobotocore.session
 
 import asyncio
+import ujson
 
 CONTENT_SQL_QUERY_BASE = """
     SELECT *
@@ -23,21 +27,39 @@ CONTENT_SQL_QUERY_BASE = """
     OFFSET {offset_value};
 """
 
+INSERT_CONTENT_SQL_QUERY = """
+    INSERT INTO
+    `contents` (
+        `contents`.`content_submission_urn`, `contents`.`content_source_urn`,
+        `contents`.`content_origin_urn`, `contents`.`content_media_url`,
+        `contents`.`content_thumbnail_url`, `contents`.`content_tags`
+    )
+    VALUES (%s, %s, %s, %s, %s, %s);
+"""
+
+INSERT_CONTENT_KEYS = [
+    "content_submission_urn", "content_source_urn", "content_origin_urn",
+    "content_media_url", "content_thumbnail_url", "content_tags"
+]
+
 
 class ContentManager:
     """Content manager implementation."""
 
     def __init__(self,
                  database_connection_settings: DatabaseConnectionSettings,
-                 storage_connection_settings: StorageConnectionSettings) -> None:
+                 storage_connection_settings: StorageConnectionSettings,
+                 media_processing_manager: MediaProcessingManager) -> None:
         """Class constructor that connects the database.
 
         Args:
             database_connection_settings (DatabaseConnectionSettings): Database connection settings.
             storage_connection_settings (StorageConnectionSettings): Storage connection settings.
+            media_processing_manager (MediaProcessingManager): Media processing manager.
         """
 
         self.__storage_connection_settings = storage_connection_settings
+        self.__media_processing_manager = media_processing_manager
 
         asyncio.get_event_loop().run_until_complete(
             self.__instantiate_pool(database_connection_settings))
@@ -115,12 +137,16 @@ class ContentManager:
             query = self.__generate_content_sql_query(view_settings)
             query_arguments = self.__generate_content_sql_query_arguments(view_settings)
 
-            print(query)
-
             async with connection.cursor() as cursor:
                 await cursor.execute(query, query_arguments)
 
-                results = [Content(**row) for row in await cursor.fetchall()]
+                results = []
+
+                for row in await cursor.fetchall():
+                    content = Content(**row)
+                    content.content_tags = ujson.loads(content.content_tags)
+
+                    results.append(content)
 
                 # Maximum size of `len(results)` is equals to `view_settings.page_size + 1``
                 has_more = len(results) == view_settings.page_size + 1
@@ -128,3 +154,60 @@ class ContentManager:
 
                 return ContentViewResult(results=results,
                                          has_more=has_more)
+
+    def __get_storage_url(self, file_path: str) -> str:
+        instance_url = self.__storage_connection_settings.instance_url
+        bucket_name = self.__storage_connection_settings.bucket_name
+
+        base_url = f"{instance_url}/{bucket_name}/" \
+            if not instance_url.endswith("/") \
+                else f"{instance_url}{bucket_name}/"
+
+        public_url_base = self.__storage_connection_settings.public_url_base
+
+        if public_url_base:
+            base_url = public_url_base if public_url_base.endswith("/") \
+                else public_url_base + "/"
+
+        return base_url + file_path
+
+    async def add_contents(self, contents: list[Content], process_media: bool) -> int:
+        """Add an multiple content information to the database.
+
+        Args:
+            contents (list[Content]): Content information.
+            process_media (bool): Is need to process the media?
+
+        Returns:
+            list: Count of added contents.
+        """
+
+        async with self.__database_pool.acquire() as connection:
+            arguments_of_queries = []
+
+            for content in contents:
+                if process_media:
+                    source_image_url = content.content_media_url
+
+                    processed_images = await self.__media_processing_manager.process_images_from_urls({
+                        source_image_url: [ImageType.MEDIA, ImageType.THUMBNAIL]
+                    })
+
+                    content.content_media_url = self.__get_storage_url(
+                        processed_images[source_image_url][ImageType.MEDIA]
+                    )
+
+                    content.content_thumbnail_url = self.__get_storage_url(
+                        processed_images[source_image_url][ImageType.THUMBNAIL]
+                    )
+
+                content.content_tags = ujson.dumps(content.content_tags)
+                query_arguments = [getattr(content, key) for key in INSERT_CONTENT_KEYS]
+
+                arguments_of_queries.append(query_arguments)
+
+            async with connection.cursor() as cursor:
+                await cursor.executemany(INSERT_CONTENT_SQL_QUERY, arguments_of_queries)
+                await connection.commit()
+
+                return cursor.rowcount

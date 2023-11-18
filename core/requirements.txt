@@ -1,4 +1,7 @@
 aiomysql
+aiohttp
 aiobotocore
 types-aiobotocore[s3]
+cryptography
+pillow
 ujson
