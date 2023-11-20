@@ -17,40 +17,40 @@ import aiobotocore.session
 import asyncio
 import ujson
 
-CONTENT_SQL_QUERY_BASE = """
-    SELECT *
-    FROM `contents`
-    WHERE ({nesseccary_tags_check_expression})
-    AND NOT ({blocked_tags_check_expression})
-    ORDER BY `contents`.`content_submitted_at` {order_type}
-    LIMIT {limit_value}
-    OFFSET {offset_value};
-"""
-
-INSERT_CONTENT_SQL_QUERY = """
-    INSERT INTO
-    `contents` (
-        `contents`.`content_submission_urn`, `contents`.`content_source_urn`,
-        `contents`.`content_origin_urn`, `contents`.`content_media_url`,
-        `contents`.`content_thumbnail_url`, `contents`.`content_tags`
-    )
-    VALUES (%s, %s, %s, %s, %s, %s);
-"""
-
-INSERT_CONTENT_KEYS = [
-    "content_submission_urn", "content_source_urn", "content_origin_urn",
-    "content_media_url", "content_thumbnail_url", "content_tags"
-]
-
 
 class ContentManager:
     """Content manager implementation."""
+
+    CONTENT_SQL_QUERY_BASE = """
+        SELECT *
+        FROM `contents`
+        WHERE ({nesseccary_tags_check_expression})
+        AND NOT ({blocked_tags_check_expression})
+        ORDER BY `contents`.`content_submitted_at` {order_type}
+        LIMIT {limit_value}
+        OFFSET {offset_value};
+    """
+
+    INSERT_CONTENT_SQL_QUERY = """
+        INSERT INTO
+        `contents` (
+            `contents`.`content_submission_urn`, `contents`.`content_source_urn`,
+            `contents`.`content_origin_urn`, `contents`.`content_media_url`,
+            `contents`.`content_thumbnail_url`, `contents`.`content_tags`
+        )
+        VALUES (%s, %s, %s, %s, %s, %s);
+    """
+
+    INSERT_CONTENT_KEYS = [
+        "content_submission_urn", "content_source_urn", "content_origin_urn",
+        "content_media_url", "content_thumbnail_url", "content_tags"
+    ]
 
     def __init__(self,
                  database_connection_settings: DatabaseConnectionSettings,
                  storage_connection_settings: StorageConnectionSettings,
                  media_processing_manager: MediaProcessingManager) -> None:
-        """Class constructor that connects the database.
+        """Class constructor.
 
         Args:
             database_connection_settings (DatabaseConnectionSettings): Database connection settings.
@@ -102,7 +102,7 @@ class ContentManager:
 
         order_type = "ASC" if view_settings.order_by == ViewOrderType.ASCENDING_ORDER else "DESC"
 
-        return CONTENT_SQL_QUERY_BASE.format(
+        return self.CONTENT_SQL_QUERY_BASE.format(
             nesseccary_tags_check_expression=nesseccary_tags_check_expression,
             blocked_tags_check_expression=blocked_tags_check_expression,
             limit_value=limit_value,
@@ -202,12 +202,12 @@ class ContentManager:
                     )
 
                 content.content_tags = ujson.dumps(content.content_tags)
-                query_arguments = [getattr(content, key) for key in INSERT_CONTENT_KEYS]
+                query_arguments = [getattr(content, key) for key in self.INSERT_CONTENT_KEYS]
 
                 arguments_of_queries.append(query_arguments)
 
             async with connection.cursor() as cursor:
-                await cursor.executemany(INSERT_CONTENT_SQL_QUERY, arguments_of_queries)
+                await cursor.executemany(self.INSERT_CONTENT_SQL_QUERY, arguments_of_queries)
                 await connection.commit()
 
                 return cursor.rowcount

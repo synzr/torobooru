@@ -36,7 +36,7 @@ class MediaProcessingManager:
 
     def __init__(self,
                  storage_connection_settings: StorageConnectionSettings) -> None:
-        """Class constructor that connects to the storage.
+        """Class constructor.
 
         Args:
             storage_connection_settings (StorageConnectionSettings): Storage connection settings.
@@ -100,8 +100,8 @@ class MediaProcessingManager:
 
             return image_path
 
-    async def process_images_from_urls(self,
-                                       image_urls: dict[str, list[ImageType]]) -> dict[str, dict[ImageType, str]]:
+    async def process_images_from_urls(self, image_urls: dict[str, list[ImageType]]) \
+        -> dict[str, dict[ImageType, str]]:
         """Process image(s) from URL(s).
 
         Args:

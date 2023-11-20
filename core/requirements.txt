@@ -1,6 +1,7 @@
 aiomysql
 aiohttp
 aiobotocore
+fake-useragent
 types-aiobotocore[s3]
 cryptography
 pillow

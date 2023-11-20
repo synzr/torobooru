@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: [redacted]
--- Generation Time: Nov 17, 2023 at 11:00 AM
+-- Generation Time: Nov 19, 2023 at 04:28 PM
 -- Server version: 8.0.22-13
 -- PHP Version: 7.4.20
 
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `[redacted]`
+-- Database: [redacted]
 --
 
 -- --------------------------------------------------------
@@ -38,6 +38,18 @@ CREATE TABLE `contents` (
   `content_submitted_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `external_data`
+--
+
+CREATE TABLE `external_data` (
+  `external_data_urn` varchar(100) NOT NULL,
+  `external_data` json NOT NULL,
+  `external_data_last_update` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 --
 -- Indexes for dumped tables
 --
@@ -49,6 +61,12 @@ ALTER TABLE `contents`
   ADD PRIMARY KEY (`content_id`),
   ADD UNIQUE KEY `urns` (`content_submission_urn`,`content_source_urn`,`content_origin_urn`),
   ADD UNIQUE KEY `media_url` (`content_media_url`) USING BTREE;
+
+--
+-- Indexes for table `external_data`
+--
+ALTER TABLE `external_data`
+  ADD PRIMARY KEY (`external_data_urn`);
 
 --
 -- AUTO_INCREMENT for dumped tables
