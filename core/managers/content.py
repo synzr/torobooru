@@ -17,6 +17,8 @@ import aiobotocore.session
 import asyncio
 import ujson
 
+import logging
+
 
 class ContentManager:
     """Content manager implementation."""
@@ -61,6 +63,8 @@ class ContentManager:
         self.__storage_connection_settings = storage_connection_settings
         self.__media_processing_manager = media_processing_manager
 
+        self.__logger = logging.getLogger("core.managers.content")
+
         asyncio.get_event_loop().run_until_complete(
             self.__instantiate_pool(database_connection_settings))
 
@@ -80,6 +84,8 @@ class ContentManager:
                                                           password=database_connection_settings.credentials_password,
                                                           db=database_connection_settings.database_name,
                                                           cursorclass=aiomysql.DictCursor)
+
+        self.__logger.info("__instantiate_pool(database_connection_settings=[redacted]): Instantiated an database pool")
 
     def __generate_content_sql_query(self, view_settings: ViewSettings) -> str:
         nesseccary_tags_executions = []
@@ -152,6 +158,8 @@ class ContentManager:
                 has_more = len(results) == view_settings.page_size + 1
                 if has_more: results = results[:-1]
 
+                self.__logger.info(f"get_contents(view_settings={view_settings}): Got {len(results)} contents")
+
                 return ContentViewResult(results=results,
                                          has_more=has_more)
 
@@ -171,12 +179,12 @@ class ContentManager:
 
         return base_url + file_path
 
-    async def add_contents(self, contents: list[Content], process_media: bool) -> int:
+    async def add_contents(self, contents: list[Content], process_media: bool = False) -> int:
         """Add an multiple content information to the database.
 
         Args:
             contents (list[Content]): Content information.
-            process_media (bool): Is need to process the media?
+            process_media (bool, optional): Is need to process the media?
 
         Returns:
             list: Count of added contents.
@@ -210,4 +218,5 @@ class ContentManager:
                 await cursor.executemany(self.INSERT_CONTENT_SQL_QUERY, arguments_of_queries)
                 await connection.commit()
 
+                self.__logger.info(f"add_contents(contents={contents}, process_media={process_media}): Added {cursor.rowcount} contents")
                 return cursor.rowcount

@@ -4,6 +4,7 @@ from aiohttp import ClientSession
 from fake_useragent import FakeUserAgent
 
 import ujson
+import logging
 
 
 class TwitterProvider:
@@ -65,6 +66,7 @@ class TwitterProvider:
         """Class constructor."""
 
         self.__user_agent = FakeUserAgent().random
+        self.__logger = logging.getLogger("core.providers.twitter")
 
     async def __activate_guest_session(self, session: ClientSession) -> bool:
         session.headers["user-agent"] = self.__user_agent
@@ -84,6 +86,7 @@ class TwitterProvider:
             })
             session.cookie_jar.update_cookies({"guest_id": "v1%3A" + guest_token})
 
+            self.__logger.info(f"__activate_guest_session(session={session}): Guest session activation successful")
             return True
 
     async def __fetch_user(self, screen_name: str) -> TwitterUser | None:
@@ -117,6 +120,8 @@ class TwitterProvider:
                 user_screen_name = base_user["screen_name"]
                 user_follower_count = base_user["followers_count"]
                 user_avatar_url = base_user["profile_image_url_https"]
+
+                self.__logger.info(f"__fetch_user(screen_name={screen_name}): Received user {user_name} ({user_full_url})")
 
                 return TwitterUser(
                     user_rest_id=user_rest_id,
@@ -175,6 +180,8 @@ class TwitterProvider:
 
                     tweet_image_urls.append(media_entity["media_url_https"])
 
+                self.__logger.info(f"__fetch_tweet(tweet_rest_id={tweet_rest_id}): Received tweet {tweet_rest_id} ({tweet_full_url})")
+
                 return TwitterTweet(
                     tweet_rest_id=tweet_rest_id,
                     tweet_full_url=tweet_full_url,
@@ -205,4 +212,5 @@ class TwitterProvider:
             tweet_rest_id = int(urn.urn_identifier, 10)
             return await self.__fetch_tweet(tweet_rest_id)
 
+        logging.error(f"fetch(urn={urn}): Can't receive this object")
         return None

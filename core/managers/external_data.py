@@ -9,17 +9,18 @@ from core.models import (
     ExternalData,
     URN
 )
-
 from core.providers import (
     PixivProvider,
     TumblrProvider,
     TwitterProvider
 )
-
 import dataclasses
+
 import aiomysql
 import asyncio
+
 import ujson
+import logging
 
 
 class ExternalDataManager:
@@ -54,6 +55,7 @@ class ExternalDataManager:
         """
 
         self.__providers = {}
+        self.__logger = logging.getLogger("core.managers.external_data")
 
         asyncio.get_event_loop().run_until_complete(
             self.__instantiate_pool(database_connection_settings))
@@ -79,6 +81,8 @@ class ExternalDataManager:
                                                           db=database_connection_settings.database_name,
                                                           cursorclass=aiomysql.DictCursor)
 
+        self.__logger.info("__instantiate_pool(database_connection_settings=[redacted]): Instantiated an database pool")
+
     def add_provider(self,
                      provider_name: str,
                      provider_class: any,
@@ -94,6 +98,7 @@ class ExternalDataManager:
         if provider_name in self.__providers:
             return
 
+        self.__logger.info(f"add_provider(provider_name={provider_name}, provider_class={provider_class}, provider_objects={provider_objects}): Added provider {provider_name}")
         self.__providers[provider_name] = {
             "class_instance": provider_class(),
             "avaliable_objects": provider_objects
@@ -158,12 +163,14 @@ class ExternalDataManager:
                 external_data=external_data_as_object
             )
 
+        self.__logger.info(f"__get_dictionary_using_cached_data(urns={urns}, cursor={cursor}): Got {len(result)} results")
         return result
 
     async def __get_dictionary_using_providers(self,
                                                urns: list[str],
                                                cursor: aiomysql.Cursor) -> dict[str, ExternalData]:
         result = {urn: None for urn in urns}
+        result_count = 0
 
         for urn in urns:
             urn_parsed = self.__parse_urn(urn)
@@ -198,7 +205,9 @@ class ExternalDataManager:
                 urn_parsed=urn_parsed,
                 external_data=external_data
             )
+            result_count += 1
 
+        self.__logger.info(f"__get_dictionary_using_providers(urns={urns}, cursor={cursor}): Got {result_count} results")
         return result
 
     async def get_external_data(self,
@@ -226,4 +235,5 @@ class ExternalDataManager:
                 result.update(await self.__get_dictionary_using_providers(urns, cursor))
                 await connection.commit()
 
+                self.__logger.info(f"get_external_data(urns={urns}, force_update={force_update}): Got {len(result)} results")
                 return result

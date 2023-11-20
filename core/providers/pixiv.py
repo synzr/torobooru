@@ -3,6 +3,8 @@ from core.models import PivixArtwork, PivixUser, URN
 from aiohttp import ClientSession
 from fake_useragent import FakeUserAgent
 
+import logging
+
 
 class PixivProvider:
     """Pixiv data provider."""
@@ -19,6 +21,7 @@ class PixivProvider:
         """Class constructor."""
 
         self.__user_agent = FakeUserAgent().random
+        self.__logger = logging.getLogger("core.providers.pixiv")
 
     async def __fetch_artwork(self, artwork_id: int) -> PivixArtwork | None:
         headers = {"user-agent": self.__user_agent, "referrer": self.PIXIV_BASE_URL}
@@ -37,6 +40,8 @@ class PixivProvider:
                 artwork_hq_image_url = result["body"]["urls"]["regular"]
                 artwork_author_id = int(result["body"]["userId"], 10)
                 artwork_author_full_url = self.PIXIV_USER_BASE_URL.format(user_id=artwork_author_id)
+
+                logging.info(f"__fetch_artwork(artwork_id={artwork_id}): Recevied artwork {artwork_title} ({artwork_full_url})")
 
                 return PivixArtwork(
                     artwork_id=artwork_id,
@@ -68,6 +73,8 @@ class PixivProvider:
                 if result["body"]["social"] and "twitter" in result["body"]["social"]:
                     user_twitter_account_url = result["body"]["social"]["twitter"]["url"]
 
+                logging.info(f"__fetch_user(user_id={user_id}): Recevied user {user_name} ({user_full_url})")
+
                 return PivixUser(
                     user_id=user_id,
                     user_full_url=user_full_url,
@@ -97,4 +104,5 @@ class PixivProvider:
             user_id = int(urn.urn_identifier, 10)
             return await self.__fetch_user(user_id)
 
+        logging.error(f"fetch(urn={urn}): Can't receive this object")
         return None

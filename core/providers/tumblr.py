@@ -4,6 +4,7 @@ from aiohttp import ClientSession
 from fake_useragent import FakeUserAgent
 
 import ujson
+import logging
 
 
 class TumblrProvider:
@@ -16,6 +17,7 @@ class TumblrProvider:
         """Class constructor."""
 
         self.__user_agent = FakeUserAgent().random
+        self.__logger = logging.getLogger("core.providers.tumblr")
 
     async def __get_initial_state(self, url: str) -> dict | None:
         headers = {"user-agent": self.__user_agent}
@@ -49,6 +51,8 @@ class TumblrProvider:
         blog_title = blog["title"]
         blog_hq_avatar_url = blog["avatar"][0]["url"]
 
+        self.__logger.info(f"__fetch_blog(blog_name={blog_name}): Received blog {blog_title} ({blog_url})")
+
         return TumblrBlog(
             blog_name=blog_name,
             blog_url=blog_url,
@@ -77,6 +81,8 @@ class TumblrProvider:
 
             post_images.append(content["media"][0]["url"])
 
+        self.__logger.info(f"__fetch_post(post_id={post_id}, blog_name={blog_name}): Received post {post_id} ({post_url})")
+
         return TumblrPost(
             post_id=post_id,
             post_url=post_url,
@@ -104,4 +110,5 @@ class TumblrProvider:
             post_id = int(urn.urn_identifier, 10)
             return await self.__fetch_post(post_id, blog_name=urn.urn_extra_fields["blog_name"])
 
+        logging.error(f"fetch(urn={urn}): Can't receive this object")
         return None

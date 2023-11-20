@@ -2,7 +2,6 @@ from core.models import StorageConnectionSettings, ImageType
 from enum import Enum
 
 from aiohttp import ClientSession
-import aiobotocore.session
 
 from PIL import Image
 from io import BytesIO
@@ -11,6 +10,9 @@ from hashlib import md5
 
 from fake_useragent import UserAgent
 from yarl import URL
+
+import aiobotocore.session
+import logging
 
 DOWNLOAD_CHUNK_SIZE = 4096
 BLACK_COLOR = (0, 0, 0)
@@ -57,6 +59,7 @@ class MediaProcessingManager:
 
         self.__storage_connection_settings = storage_connection_settings
         self.__user_agent = UserAgent().random
+        self.__logger = logging.getLogger("core.managers.media_processing")
 
     async def __download_image_to_memory(self, source_url: str) -> Image:
         parsed_source_url = URL(source_url)
@@ -72,6 +75,7 @@ class MediaProcessingManager:
                 async for chunk in image_response.content.iter_chunked(DOWNLOAD_CHUNK_SIZE):
                     image_contents.write(chunk)
 
+                self.__logger.info(f"__download_image_to_memory(source_url={source_url}): Downloaded image to memory, image size: {len(image_contents.getvalue())}")
                 return Image.open(image_contents)
 
     def __process_image(self, source_image: Image, destination_image_type: ImageType) -> Image:
@@ -118,6 +122,7 @@ class MediaProcessingManager:
                 ContentType="image/jpeg"
             )
 
+            self.__logger.info(f"__upload_image_to_storage(image={image}, image_type={image_type}): Uploaded image ({image_path}) to storage")
             return image_path
 
     async def process_images_from_urls(self, image_urls: dict[str, list[ImageType]]) \
@@ -142,4 +147,5 @@ class MediaProcessingManager:
                 processed_images[image_url][image_type] = \
                     await self.__upload_image_to_storage(processed_image, image_type)
 
+        self.__logger.info(f"process_images_from_urls(image_urls={image_urls}): Processed {len(processed_images)} images")
         return processed_images
