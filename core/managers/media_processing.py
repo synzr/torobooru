@@ -9,6 +9,9 @@ from io import BytesIO
 
 from hashlib import md5
 
+from fake_useragent import UserAgent
+from yarl import URL
+
 DOWNLOAD_CHUNK_SIZE = 4096
 BLACK_COLOR = (0, 0, 0)
 
@@ -34,6 +37,16 @@ IMAGE_SETTINGS = {
 class MediaProcessingManager:
     """Media processing manager."""
 
+    # TODO(synzr): please create the content url model
+    #              with referrer field and use
+    #              instead of this hardcode
+    REFERRER_WEBSITES = {
+        "pbs.twimg.com": "https://twitter.com/",
+        "64.media.tumblr.com": "https://tumblr.com/",
+        "i.pximg.net": "https://www.pixiv.net/",
+        "s.pximg.net": "https://www.pixiv.net/"
+    }
+
     def __init__(self,
                  storage_connection_settings: StorageConnectionSettings) -> None:
         """Class constructor.
@@ -43,9 +56,16 @@ class MediaProcessingManager:
         """
 
         self.__storage_connection_settings = storage_connection_settings
+        self.__user_agent = UserAgent().random
 
     async def __download_image_to_memory(self, source_url: str) -> Image:
-        async with ClientSession() as session:
+        parsed_source_url = URL(source_url)
+        headers = {"user-agent": self.__user_agent}
+
+        if parsed_source_url.host in self.REFERRER_WEBSITES:
+            headers["referrer"] = self.REFERRER_WEBSITES[parsed_source_url.host]
+
+        async with ClientSession(headers=headers) as session:
             async with session.get(source_url) as image_response:
                 image_contents = BytesIO()
 

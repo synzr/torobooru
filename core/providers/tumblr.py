@@ -18,7 +18,7 @@ class TumblrProvider:
         self.__user_agent = FakeUserAgent().random
 
     async def __get_initial_state(self, url: str) -> dict | None:
-        headers = {"User-Agent": self.__user_agent}
+        headers = {"user-agent": self.__user_agent}
 
         async with ClientSession(headers=headers) as session:
             async with session.get(url) as response:

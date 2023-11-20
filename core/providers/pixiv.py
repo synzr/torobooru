@@ -21,7 +21,7 @@ class PixivProvider:
         self.__user_agent = FakeUserAgent().random
 
     async def __fetch_artwork(self, artwork_id: int) -> PivixArtwork | None:
-        headers = {"User-Agent": self.__user_agent, "Referer": self.PIXIV_BASE_URL}
+        headers = {"user-agent": self.__user_agent, "referrer": self.PIXIV_BASE_URL}
 
         async with ClientSession(headers=headers) as session:
             url = self.PIXIV_AJAX_ARTWORK_URL.format(artwork_id=artwork_id)
@@ -49,7 +49,7 @@ class PixivProvider:
                 )
 
     async def __fetch_user(self, user_id: int) -> PivixUser | None:
-        headers = {"User-Agent": self.__user_agent, "Referer": self.PIXIV_BASE_URL}
+        headers = {"user-agent": self.__user_agent, "referrer": self.PIXIV_BASE_URL}
 
         async with ClientSession(headers=headers) as session:
             url = self.PIXIV_AJAX_USER_URL.format(user_id=user_id)

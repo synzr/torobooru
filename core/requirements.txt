@@ -6,3 +6,4 @@ types-aiobotocore[s3]
 cryptography
 pillow
 ujson
+yarl
