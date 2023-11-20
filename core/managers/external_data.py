@@ -126,7 +126,7 @@ class ExternalDataManager:
 
     def __generate_get_external_data_query(self, urn_count: int) -> str:
         external_data_urn_check = ["`external_data`.`external_data_urn` = %s" for index in range(urn_count)]
-        external_data_urn_check = " AND ".join(external_data_urn_check)
+        external_data_urn_check = " OR ".join(external_data_urn_check)
 
         return self.GET_EXTERNAL_DATA_SQL.format(
             external_data_urn_check=external_data_urn_check
@@ -163,7 +163,8 @@ class ExternalDataManager:
     async def __get_dictionary_using_providers(self,
                                                urns: list[str],
                                                cursor: aiomysql.Cursor) -> dict[str, ExternalData]:
-        result = {}
+        result = {urn: None for urn in urns}
+
         for urn in urns:
             urn_parsed = self.__parse_urn(urn)
 
@@ -220,10 +221,7 @@ class ExternalDataManager:
 
                 if not force_update:
                     result = await self.__get_dictionary_using_cached_data(urns, cursor)
-
-                    for urn in urns:
-                        if urn in result.keys():
-                            urns.remove(urn)
+                    urns = list(filter(lambda urn: not result[urn], urns))
 
                 result.update(await self.__get_dictionary_using_providers(urns, cursor))
                 await connection.commit()
