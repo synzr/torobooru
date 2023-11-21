@@ -1,3 +1,4 @@
+from .providers.discord import DiscordMessage, DiscordUser
 from .providers.pixiv import PivixArtwork, PivixUser
 from .providers.tumblr import TumblrBlog, TumblrPost
 from .providers.twitter import TwitterUser, TwitterTweet

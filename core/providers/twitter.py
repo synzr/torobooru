@@ -212,5 +212,5 @@ class TwitterProvider:
             tweet_rest_id = int(urn.urn_identifier, 10)
             return await self.__fetch_tweet(tweet_rest_id)
 
-        logging.error(f"fetch(urn={urn}): Can't receive this object")
+        self.__logger.error(f"fetch(urn={urn}): Can't receive this object")
         return None

@@ -7,6 +7,7 @@ import os
 
 ENVIRONMENT_VARIABLES_MAPPING = {
     "DISCORD_TOKEN": "discord_token",
+    "DISCORD_TEXT_CHANNELS": "discord_text_channels",
     "DATABASE_INSTANCE_HOSTNAME": "database_instance_hostname",
     "DATABASE_INSTANCE_PORT": ["database_instance_port", int],
     "DATABASE_CREDENTIALS_USERNAME": "database_credentials_username",
@@ -31,9 +32,9 @@ def build_argument_parser() -> ArgumentParser:
     argument_parser = ArgumentParser("toroboorubot",
                                      description="Torobooru's discord bot")
 
+    # Discord-related settings
     argument_parser.add_argument("--discord-token", default=None)
-
-    argument_parser.add_argument_group()
+    argument_parser.add_argument("--discord-text-channels", default=None)
 
     # Database settings
     argument_parser.add_argument("--database-instance-hostname", default=None)

@@ -1,3 +1,6 @@
+from yarl import URL
+from aiohttp import ClientSession
+
 from core.models import (
     PivixArtwork,
     PivixUser,
@@ -86,13 +89,15 @@ class ExternalDataManager:
     def add_provider(self,
                      provider_name: str,
                      provider_class: any,
-                     provider_objects: dict[str, any]) -> None:
+                     provider_objects: dict[str, any],
+                     provider_class_arguments: dict = {}) -> None:
         """Add provider to the manager.
 
         Args:
             provider_name (str): Provider name.
             provider_class (any): Provider class.
             provider_objects (dict[str, any]): Objects of the provider.
+            provider_class_arguments (dict, optional): Arguments for provider class instance.
         """
 
         if provider_name in self.__providers:
@@ -100,15 +105,26 @@ class ExternalDataManager:
 
         self.__logger.info(f"add_provider(provider_name={provider_name}, provider_class={provider_class}, provider_objects={provider_objects}): Added provider {provider_name}")
         self.__providers[provider_name] = {
-            "class_instance": provider_class(),
+            "class_instance": provider_class(**provider_class_arguments),
             "avaliable_objects": provider_objects
         }
 
+    # TODO(synzr): move the urn logic to provider classes
     def __parse_urn(self, urn: str) -> URN | None:
         if not urn.startswith("urn:"):
             return None
 
         elements = urn.split(":")[1:]
+
+        if elements[0] == "discord" and elements[1] == "message":
+            urn_provider, urn_object, channel_id, urn_identifier = elements
+
+            return URN(
+                urn_provider=urn_provider,
+                urn_object=urn_object,
+                urn_identifier=urn_identifier,
+                urn_extra_fields={"channel_id": channel_id}
+            )
 
         if elements[0] == "tumblr" and elements[1] == "post":
             urn_provider, urn_object, blog_name, urn_identifier = elements
@@ -237,3 +253,61 @@ class ExternalDataManager:
 
                 self.__logger.info(f"get_external_data(urns={urns}, force_update={force_update}): Got {len(result)} results")
                 return result
+
+    # TODO(synzr): move the urn logic to provider classes
+    async def get_urn_from_url(self, url: str) -> str | None:
+        """Get an URN identifier using URL.
+
+        Args:
+            url (str): URL.
+
+        Returns:
+            str: URN identifier.
+            None: Nothing.
+        """
+
+        parsed_url = URL(url)
+        is_twitter_hostname = (
+            parsed_url.host == "twitter.com" or
+            parsed_url.host == "x.com" or
+            parsed_url.host == "vxtwitter.com" or
+            parsed_url.host == "fxtwitter.com" or
+            parsed_url.host == "fixvx.com" or
+            parsed_url.host == "fixupx.com"
+        )
+
+        if is_twitter_hostname:
+            is_tweet = "/status" in parsed_url.path
+            is_unknown_page = "/i" in parsed_url.path
+
+            if is_tweet: return f"urn:twitter:tweet:{parsed_url.parts[-1]}"
+            elif not is_unknown_page: return f"urn:twitter:user:{parsed_url.parts[0]}"
+            else: return None
+
+        if parsed_url.host == "tmblr.co":
+            async with ClientSession() as session:
+                async with session.get(url, allow_redirects=False) as response:
+                    parsed_url = URL(response.headers["location"])
+
+        if parsed_url.host.endswith("tumblr.com"):
+            is_blog_name_in_hostname = parsed_url.host != "tumblr.com"
+
+            if is_blog_name_in_hostname: blog_name = parsed_url.host.split(".")[0]
+            else: blog_name = parsed_url.parts[0]
+
+            urn = f"urn:tumblr:blog:{blog_name}"
+
+            if parsed_url.parts[1].isdigit():
+                urn = f"urn:tumblr:post:{blog_name}:{parsed_url.parts[1]}"
+            elif parsed_url.parts[2].isdigit():
+                urn = f"urn:tumblr:post:{blog_name}:{parsed_url.parts[2]}"
+
+            return urn
+
+        if parsed_url.host.endswith("pixiv.net"):
+            if parsed_url.parts[-2] == "artworks":
+                return f"urn:pixiv:artwork:{parsed_url.parts[-1]}"
+            elif parsed_url.parts[-2] == "users":
+                return f"urn:pixiv:user:{parsed_url.parts[-1]}"
+
+        return None
